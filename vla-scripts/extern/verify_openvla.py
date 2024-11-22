@@ -31,6 +31,11 @@ def get_openvla_prompt(instruction: str) -> str:
 def verify_openvla() -> None:
     print(f"[*] Verifying OpenVLAForActionPrediction using Model `{MODEL_PATH}`")
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    print(f"[*] Running on Device: {device}")
+    if torch.backends.cudnn.is_available():
+        print("[*] cuDNN is available!")
+    else:
+        print("[*] cuDNN is not available.")
 
     # Load Processor & VLA
     print("[*] Instantiating Processor and Pretrained OpenVLA")
@@ -40,7 +45,7 @@ def verify_openvla() -> None:
     # print("[*] Loading in BF16 with Flash-Attention Enabled")
     # vla = AutoModelForVision2Seq.from_pretrained(
     #     MODEL_PATH,
-    #     # attn_implementation="flash_attention_2",
+    #     attn_implementation="flash_attention_2",
     #     torch_dtype=torch.bfloat16,
     #     low_cpu_mem_usage=True,
     #     trust_remote_code=True,
@@ -61,7 +66,7 @@ def verify_openvla() -> None:
     print("[*] Loading in 4-Bit Quantization Mode")
     vla = AutoModelForVision2Seq.from_pretrained(
         MODEL_PATH,
-        # attn_implementation="flash_attention_2",
+        attn_implementation="flash_attention_2",
         torch_dtype=torch.float16,
         quantization_config=BitsAndBytesConfig(load_in_4bit=True),
         low_cpu_mem_usage=True,
@@ -69,7 +74,8 @@ def verify_openvla() -> None:
     )
 
     print("[*] Iterating with Randomly Generated Images")
-    for _ in range(100):
+    times = []
+    for _ in range(40):
         prompt = get_openvla_prompt(INSTRUCTION)
         image = Image.fromarray(np.asarray(np.random.rand(256, 256, 3) * 255, dtype=np.uint8))
 
@@ -82,7 +88,11 @@ def verify_openvla() -> None:
         # Run OpenVLA Inference
         start_time = time.time()
         action = vla.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
-        print(f"\t=>> Time: {time.time() - start_time:.4f} || Action: {action}")
+        dt = time.time() - start_time
+        times.append(dt)
+        print(f"\t=>> Time: {dt:.4f} || Action: {action}")
+    print(f"[*] Average Inference Time: {np.mean(times):.4f}s")
+    print(f"[*] Average frequency: {1 / np.mean(times):.2f} Hz")
 
 
 if __name__ == "__main__":
