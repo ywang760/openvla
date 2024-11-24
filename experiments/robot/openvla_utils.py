@@ -32,7 +32,12 @@ def get_vla(cfg):
     """Loads and returns a VLA model from checkpoint."""
     # Load VLA checkpoint.
     print("[*] Instantiating Pretrained VLA model")
-    print("[*] Loading in BF16 with Flash-Attention Enabled")
+    if cfg.load_in_8bit:
+        print("[*] Loading in 8-bit")
+    elif cfg.load_in_4bit:
+        print("[*] Loading in 4-bit")
+    else:
+        print("[*] Loading in BF16")
 
     # Register OpenVLA model to HF Auto Classes (not needed if the model is on HF Hub)
     AutoConfig.register("openvla", OpenVLAConfig)

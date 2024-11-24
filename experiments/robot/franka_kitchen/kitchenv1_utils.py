@@ -9,8 +9,6 @@ import gymnasium as gym
 import gymnasium_robotics
 import mujoco
 
-sys.path.append(".")
-from experiments.robot.franka_kitchen.franka_mujoco import get_model, get_data
 
 def get_franka_env_params(cfg):
     # TODO: implement this
