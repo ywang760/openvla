@@ -1,0 +1,79 @@
+absl-py==2.1.0
+attrs==24.2.0
+bddl==3.5.0
+brotlipy==0.7.0
+certifi @ file:///croot/certifi_1671487769961/work/certifi
+cffi @ file:///croot/cffi_1670423208954/work
+charset-normalizer @ file:///tmp/build/80754af9/charset-normalizer_1630003229654/work
+click==8.1.7
+conda==23.1.0
+conda-content-trust @ file:///tmp/abs_5952f1c8-355c-4855-ad2e-538535021ba5h26t22e5/croots/recipe/conda-content-trust_1658126371814/work
+conda-package-handling @ file:///croot/conda-package-handling_1672865015732/work
+conda_package_streaming @ file:///croot/conda-package-streaming_1670508151586/work
+cryptography @ file:///croot/cryptography_1673298753778/work
+easydict==1.13
+etils==1.10.0
+evdev==1.7.1
+exceptiongroup==1.2.2
+fastjsonschema==2.20.0
+fsspec==2024.10.0
+future==1.0.0
+glfw==2.8.0
+gym==0.26.2
+gym-notices==0.0.8
+idna @ file:///croot/idna_1666125576474/work
+imageio==2.36.0
+imageio-ffmpeg==0.5.1
+importlib_resources==6.4.5
+iniconfig==2.0.0
+joblib==1.4.2
+jsonschema==4.23.0
+jsonschema-specifications==2024.10.1
+jupyter_core==5.7.2
+jupytext==1.16.4
+-e git+https://github.com/Lifelong-Robot-Learning/LIBERO.git@f78abd68ee283de9f9be3c8f7e2a9ad60246e95c#egg=libero
+llvmlite==0.43.0
+markdown-it-py==3.0.0
+mdit-py-plugins==0.4.2
+mdurl==0.1.2
+mink==0.0.5
+mujoco==3.2.5
+nbformat==5.10.4
+networkx==3.4.2
+nltk==3.9.1
+numba==0.60.0
+numpy==1.26.4
+opencv-python==4.10.0.84
+packaging==24.2
+pillow==11.0.0
+platformdirs==4.3.6
+pluggy==1.5.0
+psutil==6.1.0
+pycosat @ file:///croot/pycosat_1666805502580/work
+pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
+pynput==1.7.7
+PyOpenGL==3.1.7
+pyOpenSSL @ file:///opt/conda/conda-bld/pyopenssl_1643788558760/work
+PySocks @ file:///home/builder/ci_310/pysocks_1640793678128/work
+pytest==8.3.3
+python-xlib==0.33
+qpsolvers==4.4.0
+quadprog==0.1.13
+referencing==0.35.1
+regex==2024.11.6
+requests @ file:///opt/conda/conda-bld/requests_1657734628632/work
+rpds-py==0.21.0
+ruamel.yaml @ file:///croot/ruamel.yaml_1666304550667/work
+ruamel.yaml.clib @ file:///croot/ruamel.yaml.clib_1666302247304/work
+scipy==1.14.1
+six @ file:///tmp/build/80754af9/six_1644875935023/work
+termcolor==2.5.0
+toml==0.10.2
+tomli==2.1.0
+toolz @ file:///croot/toolz_1667464077321/work
+tqdm @ file:///opt/conda/conda-bld/tqdm_1664392687731/work
+traitlets==5.14.3
+typing_extensions==4.12.2
+urllib3 @ file:///croot/urllib3_1673575502006/work
+zipp==3.21.0
+zstandard @ file:///opt/conda/conda-bld/zstandard_1663827383994/work
