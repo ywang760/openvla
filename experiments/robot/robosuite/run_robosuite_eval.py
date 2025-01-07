@@ -3,14 +3,13 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Union
-from spatialmath import SE3
 import draccus
-import roboticstoolbox as rtb
+import wandb
 
 sys.path.append(".")
 from experiments.robot.robosuite.robosuite_utils import (
     get_robosuite_env,
-    refresh_obs
+    refresh_obs,
 )
 from experiments.robot.bridge.bridgev2_utils import (
     get_preprocessed_image,
@@ -22,6 +21,8 @@ from experiments.robot.robot_utils import (
     get_action,
     get_image_resize_size,
     get_model,
+    invert_gripper_action,
+    normalize_gripper_action,
 )
 import os
 
@@ -34,6 +35,8 @@ class GenerateConfig:
     # Model-specific parameters
     model_family: str = "openvla"
     pretrained_checkpoint: Union[str, Path] = "openvla/openvla-7b"
+    lora_adapter: bool = False
+    lora_exp_id: str = "openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0+q-4bit--None--image_aug"
 
     # Precision: default is bf16
     load_in_8bit: bool = False
@@ -42,13 +45,22 @@ class GenerateConfig:
     center_crop: bool = False
 
     # Environment-specific parameters
-    # TODO: Add more environment-specific parameters
-    max_episodes: int = 50
+    env_name: str = "Lift"
+    camera_name: str = "agentview"
+    camera_heights: int = 512
+    camera_widths: int = 512
+
+    max_episodes: int = 20
     max_steps: int = 60
     control_frequency: float = 5
 
+    # Wandb parameters
+    wandb_entity: str = "robot-vla"
+    wandb_project: str = "openvla"
+
     # Utils
-    save_data: bool = True
+    save_data: bool = False
+    debug: bool = False # If debug, will need to manually rollout the videos, otherwise it will automatically save the results
 
 
 @draccus.wrap()
@@ -57,7 +69,7 @@ def main(cfg: GenerateConfig) -> None:
     assert not cfg.center_crop, "`center_crop` should be disabled."
 
     # [OpenVLA] Set action un-normalization key
-    cfg.unnorm_key = "nyu_franka_play_dataset_converted_externally_to_rlds"
+    cfg.unnorm_key = "" # doesn't do anything
 
     # Load model and processor
     model = get_model(cfg)
@@ -69,9 +81,29 @@ def main(cfg: GenerateConfig) -> None:
     env = get_robosuite_env(cfg)
     resize_size = get_image_resize_size(cfg)
 
+    # Initialize wandb
+    if not cfg.debug:
+        tags = ["robosuite", cfg.env_name]
+        name = f"robosuite-{cfg.env_name}-eval"
+        if cfg.lora_adapter:
+            tags.append("lora")
+            name += "-lora"
+        else:
+            tags.append("baseline")
+            name += "-baseline"
+        wandb.init(
+            project=cfg.wandb_project,
+            entity=cfg.wandb_entity,
+            config=cfg.__dict__,
+            job_type="eval",
+            tags=tags,
+            name=name,
+        )
+
     # Start evaluation
-    task_label = "Stack the red cube on the green cube"
+    task_label = "Lift the cube"
     episode_idx = 0
+    success_count = 0
     while episode_idx < cfg.max_episodes:
         # task_label = get_next_task_label(task_label)
 
@@ -86,9 +118,11 @@ def main(cfg: GenerateConfig) -> None:
             rollout_images = []
             rollout_states = []
             rollout_actions = []
+        is_success = False
 
         # Start episode
-        input(f"Press Enter to start episode {episode_idx+1}...")
+        if cfg.debug:
+            input(f"Press Enter to start episode {episode_idx+1}...")
         print("Starting episode... Press Ctrl-C to terminate episode early!")
         last_tstamp = time.time()
         while t < cfg.max_steps:
@@ -100,7 +134,7 @@ def main(cfg: GenerateConfig) -> None:
                     last_tstamp = time.time()
 
                     # Refresh the camera image and proprioceptive state
-                    obs = refresh_obs(obs, env)
+                    obs = refresh_obs(cfg, obs, env)
 
                     # Save full (not preprocessed) image for replay video
                     replay_images.append(obs["full_image"])
@@ -116,6 +150,8 @@ def main(cfg: GenerateConfig) -> None:
                         task_label,
                         processor=processor,
                     )
+                    action = normalize_gripper_action(action, binarize=True)
+                    action = invert_gripper_action(action)
 
                     # [If saving rollout data] Save preprocessed image, robot state, and action
                     if cfg.save_data:
@@ -124,11 +160,15 @@ def main(cfg: GenerateConfig) -> None:
                         rollout_actions.append(action)
 
                     # Execute action
-                    action = [n * 100 for n in action]
                     print("action:", action)
                     obs, _, done, info = env.step(action)
                     env.render()
                     t += 1
+                    if env._check_success():
+                        print(f"Task completed at t={t}!")
+                        success_count += 1
+                        is_success = True
+                        break
 
             except (KeyboardInterrupt, Exception) as e:
                 if isinstance(e, KeyboardInterrupt):
@@ -138,16 +178,26 @@ def main(cfg: GenerateConfig) -> None:
                 break
 
         # Save a replay video of the episode
-        save_rollout_video(replay_images, episode_idx)
+        mp4_path = save_rollout_video(replay_images, episode_idx)
+        if not cfg.debug:
+            # log the video to wandb
+            caption = f"Episode {episode_idx+1} (Success)" if is_success else f"Episode {episode_idx+1} (Failure)"
+            wandb.log({"replay_video": wandb.Video(mp4_path, caption=caption)})            
 
         # [If saving rollout data] Save rollout data
         if cfg.save_data:
             save_rollout_data(replay_images, rollout_images, rollout_states, rollout_actions, idx=episode_idx)
 
         # Redo episode or continue
-        if input("Enter 'r' if you want to redo the episode, or press Enter to continue: ") != "r":
-            episode_idx += 1
+        if not cfg.debug or input("Enter 'r' if you want to redo the episode, or press Enter to continue: ") != "r":
+            episode_idx += 1    
 
+    # End evaluation
+    success_rate = success_count / cfg.max_episodes
+    print(f"Success rate: {success_rate}")
+    if not cfg.debug:
+        wandb.log({"success_rate": success_rate})
+        wandb.finish()
 
 if __name__ == "__main__":
     main()

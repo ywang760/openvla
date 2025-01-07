@@ -11,4 +11,4 @@
 
 # Run a command
 cd ..
-torchrun --standalone --nnodes 1 --nproc-per-node 1 vla-scripts/finetune.py --config_path=vla-scripts/config/finetune_robosuite.yaml
+torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --config_path=vla-scripts/config/finetune_robosuite.yaml

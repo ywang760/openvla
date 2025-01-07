@@ -73,6 +73,7 @@ def save_rollout_video(rollout_images, idx):
         video_writer.append_data(img)
     video_writer.close()
     print(f"Saved rollout MP4 at path {mp4_path}")
+    return mp4_path
 
 
 def save_rollout_data(rollout_orig_images, rollout_images, rollout_states, rollout_actions, idx):

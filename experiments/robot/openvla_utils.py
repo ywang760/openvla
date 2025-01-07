@@ -8,8 +8,8 @@ import numpy as np
 import tensorflow as tf
 import torch
 from PIL import Image
-from transformers import AutoConfig, AutoImageProcessor, AutoModelForVision2Seq, AutoProcessor
-
+from transformers import AutoConfig, AutoImageProcessor, AutoModelForVision2Seq, AutoProcessor, BitsAndBytesConfig
+from peft import PeftModel
 from prismatic.extern.hf.configuration_prismatic import OpenVLAConfig
 from prismatic.extern.hf.modeling_prismatic import OpenVLAForActionPrediction
 from prismatic.extern.hf.processing_prismatic import PrismaticImageProcessor, PrismaticProcessor
@@ -45,6 +45,7 @@ def get_vla(cfg):
     AutoProcessor.register(OpenVLAConfig, PrismaticProcessor)
     AutoModelForVision2Seq.register(OpenVLAConfig, OpenVLAForActionPrediction)
 
+    # Whether to load the local LoRA adapter and merge with base model or use the remote pretrained_checkpoint
     vla = AutoModelForVision2Seq.from_pretrained(
         cfg.pretrained_checkpoint,
         attn_implementation="flash_attention_2",
@@ -54,6 +55,11 @@ def get_vla(cfg):
         low_cpu_mem_usage=True,
         trust_remote_code=True,
     )
+    if cfg.lora_adapter:
+        run_dir = os.path.join("runs", cfg.lora_exp_id)
+        adapter_dir = os.path.join("adapter-tmp", cfg.lora_exp_id)
+        print(f"Loading adapter from {adapter_dir} and 'dataset_statistics.json' from {run_dir}")
+        vla = PeftModel.from_pretrained(vla, adapter_dir)
 
     # Move model to device.
     # Note: `.to()` is not supported for 8-bit or 4-bit bitsandbytes models, but the model will
@@ -62,7 +68,10 @@ def get_vla(cfg):
         vla = vla.to(DEVICE)
 
     # Load dataset stats used during finetuning (for action un-normalization).
-    dataset_statistics_path = os.path.join(cfg.pretrained_checkpoint, "dataset_statistics.json")
+    if cfg.lora_adapter:
+        dataset_statistics_path = os.path.join(run_dir, "dataset_statistics.json")
+    else:
+        dataset_statistics_path = os.path.join(cfg.pretrained_checkpoint, "dataset_statistics.json")
     if os.path.isfile(dataset_statistics_path):
         with open(dataset_statistics_path, "r") as f:
             norm_stats = json.load(f)
@@ -129,7 +138,7 @@ def crop_and_resize(image, crop_scale, batch_size):
     return image
 
 
-def get_vla_action(vla, processor, base_vla_name, obs, task_label, unnorm_key, center_crop=False):
+def get_vla_action(cfg, vla, processor, obs, task_label):
     """Generates an action with the VLA policy."""
     image = Image.fromarray(obs["full_image"])
     image = image.convert("RGB")
@@ -137,7 +146,7 @@ def get_vla_action(vla, processor, base_vla_name, obs, task_label, unnorm_key, c
     # (If trained with image augmentations) Center crop image and then resize back up to original size.
     # IMPORTANT: Let's say crop scale == 0.9. To get the new height and width (post-crop), multiply
     #            the original height and width by sqrt(0.9) -- not 0.9!
-    if center_crop:
+    if cfg.center_crop:
         batch_size = 1
         crop_scale = 0.9
 
@@ -160,7 +169,7 @@ def get_vla_action(vla, processor, base_vla_name, obs, task_label, unnorm_key, c
         image = image.convert("RGB")
 
     # Build VLA prompt
-    if "openvla-v01" in base_vla_name:  # OpenVLA v0.1
+    if "openvla-v01" in cfg.pretrained_checkpoint:  # OpenVLA v0.1
         prompt = (
             f"{OPENVLA_V01_SYSTEM_PROMPT} USER: What action should the robot take to {task_label.lower()}? ASSISTANT:"
         )
@@ -171,5 +180,8 @@ def get_vla_action(vla, processor, base_vla_name, obs, task_label, unnorm_key, c
     inputs = processor(prompt, image).to(DEVICE, dtype=torch.bfloat16)
 
     # Get action.
-    action = vla.predict_action(**inputs, unnorm_key=unnorm_key, do_sample=False)
+    if cfg.lora_adapter:
+        action = vla.predict_action(**inputs, do_sample=False)
+    else:
+        action = vla.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
     return action
