@@ -59,9 +59,11 @@ class GenerateConfig:
     # Model-specific parameters
     #################################################################################################################
     model_family: str = "openvla"                    # Model family
-    pretrained_checkpoint: Union[str, Path] = ""     # Pretrained checkpoint path
+    pretrained_checkpoint: Union[str, Path] = "openvla/openvla-7b-finetuned-libero-spatial"     # Pretrained checkpoint path
+    lora_adapter: bool = False
+    lora_exp_id: Optional[str] = None                # LORA experiment ID
     load_in_8bit: bool = False                       # (For OpenVLA only) Load with 8-bit quantization
-    load_in_4bit: bool = False                       # (For OpenVLA only) Load with 4-bit quantization
+    load_in_4bit: bool = True                       # (For OpenVLA only) Load with 4-bit quantization
 
     center_crop: bool = True                         # Center crop? (if trained w/ random crop image aug)
 
@@ -70,17 +72,18 @@ class GenerateConfig:
     #################################################################################################################
     task_suite_name: str = "libero_spatial"          # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     num_steps_wait: int = 10                         # Number of steps to wait for objects to stabilize in sim
-    num_trials_per_task: int = 50                    # Number of rollouts per task
+    num_trials_per_task: int = 5                    # Number of rollouts per task
 
     #################################################################################################################
     # Utils
     #################################################################################################################
     run_id_note: Optional[str] = None                # Extra note to add in run ID for logging
     local_log_dir: str = "./experiments/logs"        # Local directory for eval logs
+    save_rollout_videos: bool = True                 # Save rollout videos?
 
-    use_wandb: bool = False                          # Whether to also log results in Weights & Biases
-    wandb_project: str = "YOUR_WANDB_PROJECT"        # Name of W&B project to log to (use default!)
-    wandb_entity: str = "YOUR_WANDB_ENTITY"          # Name of entity to log under
+    use_wandb: bool = False                           # Whether to also log results in Weights & Biases
+    wandb_entity: str = "robot-vla"
+    wandb_project: str = "openvla-evals"
 
     seed: int = 7                                    # Random Seed (for reproducibility)
 
@@ -118,6 +121,10 @@ def eval_libero(cfg: GenerateConfig) -> None:
 
     # Initialize local logging
     run_id = f"EVAL-{cfg.task_suite_name}-{cfg.model_family}-{DATE_TIME}"
+    if cfg.lora_adapter:
+        run_id += f"-lora"
+    else:
+        run_id += f"-baseline"
     if cfg.run_id_note is not None:
         run_id += f"--{cfg.run_id_note}"
     os.makedirs(cfg.local_log_dir, exist_ok=True)
@@ -127,9 +134,17 @@ def eval_libero(cfg: GenerateConfig) -> None:
 
     # Initialize Weights & Biases logging as well
     if cfg.use_wandb:
+        tags = ["libero", "eval"]
+        if cfg.lora_adapter:
+            tags.append("lora")
+        else:
+            tags.append("baseline")
         wandb.init(
             entity=cfg.wandb_entity,
             project=cfg.wandb_project,
+            config=cfg.__dict__,
+            job_type="eval",
+            tags=tags,
             name=run_id,
         )
 
@@ -154,6 +169,7 @@ def eval_libero(cfg: GenerateConfig) -> None:
 
         # Initialize LIBERO environment and task description
         env, task_description = get_libero_env(task, cfg.model_family, resolution=256)
+        print(f"Task {task_id+1}/{num_tasks_in_suite}: {task_description}")
 
         # Start episodes
         task_episodes, task_successes = 0, 0
@@ -194,9 +210,12 @@ def eval_libero(cfg: GenerateConfig) -> None:
 
                     # Get preprocessed image
                     img = get_libero_image(obs, resize_size)
+                    # print the sum of all pixels in the image to make sure it's changing
+                    print(f"Sum of image pixels at time {t}: {np.sum(img)}")
 
                     # Save preprocessed image for replay video
-                    replay_images.append(img)
+                    if cfg.save_rollout_videos:
+                        replay_images.append(img)
 
                     # Prepare observations dict
                     # Note: OpenVLA does not take proprio state as input
@@ -225,6 +244,7 @@ def eval_libero(cfg: GenerateConfig) -> None:
                         action = invert_gripper_action(action)
 
                     # Execute action in environment
+                    print(f"Action at t={t}: {action}")
                     obs, reward, done, info = env.step(action.tolist())
                     if done:
                         task_successes += 1
@@ -241,9 +261,10 @@ def eval_libero(cfg: GenerateConfig) -> None:
             total_episodes += 1
 
             # Save a replay video of the episode
-            save_rollout_video(
-                replay_images, total_episodes, success=done, task_description=task_description, log_file=log_file
-            )
+            if cfg.save_rollout_videos:
+                save_rollout_video(
+                    replay_images, total_episodes, success=done, task_description=task_description, log_file=log_file
+                )
 
             # Log current results
             print(f"Success: {done}")

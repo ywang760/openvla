@@ -1,0 +1,31 @@
+vla_path: "openvla/openvla-7b"  # Path to OpenVLA model (on HuggingFace Hub)
+
+# Directory Paths
+data_root_dir: "/users/ywang760/scratch/modified_libero_rlds"  # Path to Open-X dataset directory
+dataset_name: "libero_spatial"  # Name of fine-tuning dataset (e.g., `droid_wipe`)
+run_root_dir: "runs"  # Path to directory to store logs & checkpoints
+adapter_tmp_dir: "adapter-tmp"  # Temporary directory for LoRA weights before fusing
+
+# Fine-tuning Parameters
+batch_size: 4  # Fine-tuning batch size
+max_steps: 10000  # Max number of fine-tuning steps
+save_steps: 2000  # Interval for checkpoint saving
+learning_rate: 0.0005  # Fine-tuning learning rate
+grad_accumulation_steps: 2  # Gradient accumulation steps
+image_aug: true  # Whether to train with image augmentations
+shuffle_buffer_size: 100000  # Dataloader shuffle buffer size (can reduce if OOM)
+save_latest_checkpoint_only: true  # Whether to save only one checkpoint per run and overwrite the latest
+
+# LoRA Arguments
+use_lora: true  # Whether to use LoRA fine-tuning
+lora_rank: 32  # Rank of LoRA weight matrix
+lora_dropout: 0.0  # Dropout applied to LoRA weights
+use_quantization: true  # Whether to 4-bit quantize VLA for LoRA fine-tuning
+
+# Tracking Parameters
+wandb_project: "openvla"  # Name of W&B project to log to (use default!)
+wandb_entity: "robot-vla"  # Name of entity to log under
+run_id_note: None  # Extra note for logging, Weights & Biases
+
+# Debug
+debug: false  # Whether to run in debug mode (disable DDP)

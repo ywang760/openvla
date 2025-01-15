@@ -60,6 +60,7 @@ def get_vla(cfg):
         adapter_dir = os.path.join("adapter-tmp", cfg.lora_exp_id)
         print(f"Loading adapter from {adapter_dir} and 'dataset_statistics.json' from {run_dir}")
         vla = PeftModel.from_pretrained(vla, adapter_dir)
+        vla = vla.merge_and_unload()
 
     # Move model to device.
     # Note: `.to()` is not supported for 8-bit or 4-bit bitsandbytes models, but the model will

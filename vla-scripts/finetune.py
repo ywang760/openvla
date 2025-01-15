@@ -116,6 +116,7 @@ class FinetuneConfig:
 @draccus.wrap()
 def finetune(cfg: FinetuneConfig) -> None:
     print(f"Fine-tuning OpenVLA Model `{cfg.vla_path}` on `{cfg.dataset_name}`")
+    print(f"debug: {cfg.debug}")
 
     # [Validate] Ensure GPU Available & Set Device / Distributed Context
     assert torch.cuda.is_available(), "Fine-tuning assumes at least one GPU is available!"
@@ -352,7 +353,7 @@ def finetune(cfg: FinetuneConfig) -> None:
                         cfg.vla_path, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True, trust_remote_code=True
                     )
                     merged_vla = PeftModel.from_pretrained(base_vla, adapter_dir)
-                    # merged_vla = merged_vla.merge_and_unload() # this step is very slow
+                    merged_vla = merged_vla.merge_and_unload() # this step is very slow
                     if distributed_state.is_main_process:
                         if cfg.save_latest_checkpoint_only:
                             # Overwrite latest checkpoint

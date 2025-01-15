@@ -156,3 +156,7 @@ wandb/
 datasets/
 runs/
 adapter-tmp/
+
+# Oscar log files
+*.err
+*.out
