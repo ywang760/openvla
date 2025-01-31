@@ -39,14 +39,14 @@ from transformers import AutoConfig, AutoImageProcessor
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 import wandb
-from prismatic.models.backbones.llm.prompting import PurePromptBuilder, VicunaV15ChatPromptBuilder
+from prismatic.models.backbones.llm.prompting import PurePromptBuilder
 from prismatic.util.data_utils import PaddedCollatorForActionPrediction
 from prismatic.vla.action_tokenizer import ActionTokenizer
 from prismatic.vla.datasets import RLDSBatchTransform, RLDSDataset
 from prismatic.vla.datasets.rlds.utils.data_utils import save_dataset_statistics
 
 from prismatic.extern.hf.configuration_prismatic import OpenVLAConfig
-from prismatic.extern.hf.modeling_prismatic import OpenVLAForActionPrediction
+from prismatic.extern.hf.modeling_prismatic import OpenVLAForActionPrediction, PrismaticVisionBackbone, PrismaticProjector
 from prismatic.extern.hf.processing_prismatic import PrismaticImageProcessor, PrismaticProcessor
 
 # Sane Defaults
@@ -214,14 +214,14 @@ def finetune(cfg: FinetuneConfig) -> None:
     #     action_tokenizer,
     #     processor.tokenizer,
     #     image_transform=processor.image_processor.apply_transform,
-    #     prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+    #     prompt_builder_fn=PurePromptBuilder,
     # )
     # ---
     batch_transform = RLDSBatchTransform(
         action_tokenizer,
         processor.tokenizer,
         image_transform=processor.image_processor.apply_transform,
-        prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+        prompt_builder_fn=PurePromptBuilder,
     )
     vla_dataset = RLDSDataset(
         cfg.data_root_dir,
@@ -266,9 +266,9 @@ def finetune(cfg: FinetuneConfig) -> None:
         for batch_idx, batch in enumerate(dataloader):
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 output: CausalLMOutputWithPast = vla(
-                    input_ids=batch["input_ids"].to(device_id),
-                    attention_mask=batch["attention_mask"].to(device_id),
-                    pixel_values=batch["pixel_values"].to(torch.bfloat16).to(device_id),
+                    input_ids=batch["input_ids"].to(device_id), # has shape (batch_size, seq_len)
+                    attention_mask=batch["attention_mask"].to(device_id), # has shape (batch_size, seq_len)
+                    pixel_values=batch["pixel_values"].to(torch.bfloat16).to(device_id), # has shape (batch_size, 6, H, W)
                     labels=batch["labels"],
                 )
                 loss = output.loss

@@ -560,3 +560,41 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         """Get all the logged statistics for the given dataset."""
         unnorm_key = self._check_unnorm_key(self.norm_stats, unnorm_key)
         return self.norm_stats[unnorm_key]["action"]
+
+class ModifiedOpenVLA(OpenVLAForActionPrediction):
+    config_class: PretrainedConfig = OpenVLAConfig
+
+    def __init__(self, config: OpenVLAConfig) -> None:
+        super().__init__(config)
+        new_vision_backbone, new_projector = self.new_components(self, config.device_id)
+        self.vision_backbone = new_vision_backbone
+        self.projector = new_projector
+    
+    def new_components(self, vla, device_id):
+        timm_model_id = "vit_base_patch16_clip_224.openai"  # Example: Vision Transformer
+        # example, mae with 224
+        timm_model_id2 = "vit_base_patch16_224.mae"
+        image_size = 224  # Input image size
+        override_act_layer = None  # Optional activation layer override
+        use_fused_vision_backbone = True
+        # Create a new PrismaticVisionBackbone
+        new_vision_backbone = PrismaticVisionBackbone(
+            use_fused_vision_backbone=use_fused_vision_backbone,  # Set True if using a fused backbone
+            image_sizes=[image_size, image_size],
+            timm_model_ids=[timm_model_id, timm_model_id2],
+            timm_override_act_layers=[override_act_layer, override_act_layer],
+        )
+        vla.vision_backbone = new_vision_backbone
+        # init the weights
+
+        new_projector = PrismaticProjector(
+            use_fused_vision_backbone=use_fused_vision_backbone,
+            vision_dim=new_vision_backbone.embed_dim,
+            llm_dim=vla.config.text_config.hidden_size
+        )
+        vla.projector = new_projector
+
+        # make sure vision_backbone and projector are on the same device
+        new_projector = new_projector.to(device_id).to(torch.bfloat16) # TODO: make sure this is desirable
+        new_vision_backbone = new_vision_backbone.to(device_id).to(torch.bfloat16)
+        return new_vision_backbone, new_projector

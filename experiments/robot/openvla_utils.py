@@ -11,7 +11,7 @@ from PIL import Image
 from transformers import AutoConfig, AutoImageProcessor, AutoModelForVision2Seq, AutoProcessor, BitsAndBytesConfig
 from peft import PeftModel
 from prismatic.extern.hf.configuration_prismatic import OpenVLAConfig
-from prismatic.extern.hf.modeling_prismatic import OpenVLAForActionPrediction
+from prismatic.extern.hf.modeling_prismatic import OpenVLAForActionPrediction, ModifiedOpenVLA
 from prismatic.extern.hf.processing_prismatic import PrismaticImageProcessor, PrismaticProcessor
 
 # Initialize important constants and pretty-printing mode in NumPy.
@@ -69,10 +69,7 @@ def get_vla(cfg):
         vla = vla.to(DEVICE)
 
     # Load dataset stats used during finetuning (for action un-normalization).
-    if cfg.lora_adapter:
-        dataset_statistics_path = os.path.join(run_dir, "dataset_statistics.json")
-    else:
-        dataset_statistics_path = os.path.join(cfg.pretrained_checkpoint, "dataset_statistics.json")
+    dataset_statistics_path = os.path.join(cfg.pretrained_checkpoint, "dataset_statistics.json")
     if os.path.isfile(dataset_statistics_path):
         with open(dataset_statistics_path, "r") as f:
             norm_stats = json.load(f)
@@ -179,10 +176,6 @@ def get_vla_action(cfg, vla, processor, obs, task_label):
 
     # Process inputs.
     inputs = processor(prompt, image).to(DEVICE, dtype=torch.bfloat16)
-
-    # Get action.
-    if cfg.lora_adapter:
-        action = vla.predict_action(**inputs, do_sample=False)
-    else:
-        action = vla.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
+    action = vla.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
+    
     return action
