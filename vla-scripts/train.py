@@ -27,7 +27,7 @@ import torch
 import torch.distributed as dist
 import yaml
 
-from prismatic.conf import VLAConfig, VLARegistry
+from prismatic.conf import VLAConfig, VLARegistry, VLARegistryNew
 from prismatic.models import load, load_vla
 from prismatic.overwatch import initialize_overwatch
 from prismatic.training import VLAMetrics, get_train_strategy
@@ -73,7 +73,7 @@ class TrainConfig:
     seed: int = 7                                                   # Random seed (for reproducibility)
 
     # HF Hub Credentials (for any gated models)
-    hf_token: Union[str, Path] = Path(".hf_token")                  # Environment variable or Path to HF Token
+    hf_token: Path = Path(".hf_token")                              # Path to HF Token
 
     # Tracking Parameters
     trackers: Tuple[str, ...] = ("jsonl", "wandb")                  # Trackers to initialize (if W&B, add config!)

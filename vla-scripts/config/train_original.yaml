@@ -1,0 +1,30 @@
+# VLA Configuration
+vla:
+  type: "prism-dinosiglip-224px+mx-oxe-magic-soup-plus"  # Unique identifier for the VLAConfig
+
+# Directory Paths
+data_root_dir: "datasets/open-x-embodiment"       # Path to Open-X dataset directory
+run_root_dir: "runs"                              # Path to directory to store logs & checkpoints
+
+# Resume Run Parameters
+pretrained_checkpoint: null                       # Absolute Path to Checkpoint (set to null if not resuming)
+is_resume: true                                   # Whether we are continuing a prior training run
+resume_step: null                                 # Global Step to Resume (should match checkpoint)
+resume_epoch: null                                # Epoch to Resume (should match checkpoint)
+
+# Run Arguments
+run_id: null                                      # Run ID for logging, Weights & Biases
+run_id_note: null                                 # Extra note for logging, Weights & Biases
+save_interval: 2500                               # Interval for saving checkpoints (in steps)
+image_aug: false                                  # Whether to enable image augmentations
+seed: 7                                           # Random seed (for reproducibility)
+
+# HF Hub Credentials
+hf_token: ".hf_token"                             # Path to HF Token (environment variable or file path)
+
+# Tracking Parameters
+trackers:                                         # List of trackers to initialize
+  - jsonl
+  - wandb
+wandb_project: "openvla"                          # Name of W&B project to log to
+wandb_entity: "stanford-voltron"                  # Name of entity to log under
