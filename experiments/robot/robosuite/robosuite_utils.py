@@ -12,7 +12,7 @@ def get_robosuite_env(cfg):
         env_name=cfg.env_name,
         robots=["Panda"],
         gripper_types="default",
-        has_renderer=True,
+        has_renderer=cfg.debug, # Render only in debug mode, otherwise offscreen if launched from a ccv-script
         use_camera_obs=True,
         camera_names=cfg.camera_name,
         camera_heights=cfg.camera_heights,
@@ -54,7 +54,7 @@ def get_mimicgen_env(cfg):
         env_name=cfg.env_name,
         robots=["Panda"],
         gripper_types="default",
-        has_renderer=True,
+        has_renderer=cfg.debug, # Render only in debug mode, otherwise offscreen if launched from a ccv-script
         use_camera_obs=True,
         camera_names=cfg.camera_name,
         camera_heights=cfg.camera_heights,
