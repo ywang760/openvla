@@ -9,14 +9,13 @@ from typing import Optional, Tuple
 
 from transformers import PreTrainedTokenizerBase
 
-from prismatic.models.backbones.llm import LLaMa2LLMBackbone, LLMBackbone, MistralLLMBackbone, PhiLLMBackbone
+from prismatic.models.backbones.llm import LLaMa2LLMBackbone, LLMBackbone
 from prismatic.models.backbones.vision import (
     CLIPViTBackbone,
     DinoCLIPViTBackbone,
     DinoSigLIPViTBackbone,
     DinoV2ViTBackbone,
     ImageTransform,
-    IN1KViTBackbone,
     SigLIPViTBackbone,
     VisionBackbone,
 )
@@ -31,7 +30,6 @@ VISION_BACKBONES = {
     "clip-vit-l": {"cls": CLIPViTBackbone, "kwargs": {"default_image_size": 224}},
     "siglip-vit-so400m": {"cls": SigLIPViTBackbone, "kwargs": {"default_image_size": 224}},
     "dinov2-vit-l": {"cls": DinoV2ViTBackbone, "kwargs": {"default_image_size": 224}},
-    "in1k-vit-l": {"cls": IN1KViTBackbone, "kwargs": {"default_image_size": 224}},
     "dinosiglip-vit-so-224px": {"cls": DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 224}},
 
     # === Assorted CLIP Backbones ===
@@ -59,17 +57,6 @@ LLM_BACKBONES = {
     # === LLaMa-2 Chat Backbones ===
     "llama2-7b-chat": {"cls": LLaMa2LLMBackbone, "kwargs": {}},
     "llama2-13b-chat": {"cls": LLaMa2LLMBackbone, "kwargs": {}},
-
-    # === Vicuna-v1.5 Backbones ===
-    "vicuna-v15-7b": {"cls": LLaMa2LLMBackbone, "kwargs": {}},
-    "vicuna-v15-13b": {"cls": LLaMa2LLMBackbone, "kwargs": {}},
-
-    # === Mistral v0.1 Backbones ===
-    "mistral-v0.1-7b-pure": {"cls": MistralLLMBackbone, "kwargs": {}},
-    "mistral-v0.1-7b-instruct": {"cls": MistralLLMBackbone, "kwargs": {}},
-
-    # === Phi-2 Backbone ===
-    "phi-2-3b": {"cls": PhiLLMBackbone, "kwargs": {}},
 }
 
 # fmt: on
@@ -111,20 +98,3 @@ def get_llm_backbone_and_tokenizer(
 
     else:
         raise ValueError(f"LLM Backbone `{llm_backbone_id}` is not supported!")
-
-
-def get_vlm(
-    model_id: str,
-    arch_specifier: str,
-    vision_backbone: VisionBackbone,
-    llm_backbone: LLMBackbone,
-    enable_mixed_precision_training: bool = True,
-) -> PrismaticVLM:
-    """Lightweight wrapper around initializing a VLM, mostly for future-proofing (if one wants to add a new VLM)."""
-    return PrismaticVLM(
-        model_id,
-        vision_backbone,
-        llm_backbone,
-        enable_mixed_precision_training=enable_mixed_precision_training,
-        arch_specifier=arch_specifier,
-    )

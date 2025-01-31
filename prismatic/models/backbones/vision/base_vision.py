@@ -140,8 +140,8 @@ class TimmViTBackbone(VisionBackbone, ABC):
         # Initialize Default Image Transform --> Modified by `self.image_resize_strategy`
         default_image_transform = timm.data.create_transform(**self.data_cfg, is_training=False)
 
-        # Fix =>> SigLIP & IN1K default transforms resize to *larger* than `self.default_image_size` (crops image)!
-        if "siglip" in self.timm_path_or_url or "in1k" in self.timm_path_or_url:
+        # Fix =>> SigLIP default transforms resize to *larger* than `self.default_image_size` (crops image)!
+        if "siglip" in self.timm_path_or_url:
             assert isinstance(default_image_transform, Compose), "Unexpected `default_image_transform`!"
             assert isinstance(default_image_transform.transforms[0], Resize)
             default_image_transform = Compose(

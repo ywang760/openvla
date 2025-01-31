@@ -142,6 +142,9 @@ class PureOverwatch:
     def world_size() -> int:
         return 1
 
+    @staticmethod
+    def local_rank() -> int:
+        return 0
 
 def initialize_overwatch(name: str) -> Union[DistributedOverwatch, PureOverwatch]:
     return DistributedOverwatch(name) if int(os.environ.get("WORLD_SIZE", -1)) != -1 else PureOverwatch(name)
