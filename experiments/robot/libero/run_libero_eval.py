@@ -61,7 +61,6 @@ class GenerateConfig:
     model_family: str = "openvla"                    # Model family
     pretrained_checkpoint: Union[str, Path] = "openvla/openvla-7b-finetuned-libero-spatial"     # Pretrained checkpoint path
     lora_adapter: bool = False
-    lora_exp_id: Optional[str] = None                # LORA experiment ID
     load_in_8bit: bool = False                       # (For OpenVLA only) Load with 8-bit quantization
     load_in_4bit: bool = True                       # (For OpenVLA only) Load with 4-bit quantization
 
@@ -118,7 +117,7 @@ def eval_libero(cfg: GenerateConfig) -> None:
     processor = None
     if cfg.model_family == "openvla":
         processor = get_processor(cfg)
-
+    
     # Initialize local logging
     run_id = f"EVAL-{cfg.task_suite_name}-{cfg.model_family}-{DATE_TIME}"
     if cfg.lora_adapter:

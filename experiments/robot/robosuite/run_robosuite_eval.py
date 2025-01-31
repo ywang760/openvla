@@ -1,8 +1,5 @@
 import sys
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, List, Union, Any, Optional
 import draccus
 import wandb
 
@@ -26,65 +23,17 @@ from experiments.robot.robot_utils import (
     invert_gripper_action,
     normalize_gripper_action,
 )
+from experiments.robot.robosuite.config import RobosuiteEvalConfig, RobosuiteEnvType
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Assign the VLM to GPU 1
 
-
-@dataclass
-class GenerateConfig:
-
-    # Model-specific parameters
-    model_family: str = "openvla"
-    pretrained_checkpoint: Union[str, Path] = "openvla/openvla-7b-finetuned-libero-spatial"
-    lora_adapter: bool = False
-    lora_exp_id: str = "openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0+q-4bit--None--image_aug" # TODO: change this
-
-    # Precision: default is bf16
-    load_in_8bit: bool = False
-    load_in_4bit: bool = True
-    center_crop: bool = False
-
-    # Environment-specific parameters
-
-    # env_name: str = "PickPlace"
-    # task_label: str = "Put the can into the box"
-    # env_kwargs: Dict[str, Any] = field(default_factory=lambda: {"single_object_mode": 2, "object_type": "can"})
-    # env_name: str = "Lift"
-    # task_label: str = "Pick up the red cube"
-    # env_kwargs: Dict[str, Any] = field(default_factory=dict)
-
-    # Example of using a mimicgen environment
-    env_name: str = "Mimicgen_Stack_D0"
-    task_label: str = "Pick up the red block and place it on the green block."
-    env_kwargs: Dict[str, Any] = field(default_factory=dict)
-
-    camera_name: str = "agentview"
-    camera_heights: int = 512
-    camera_widths: int = 512
-
-    max_episodes: int = 20
-    max_steps: int = 200
-    control_frequency: float = 5
-
-    # Wandb parameters
-    wandb_entity: str = "robot-vla"
-    wandb_project: str = "openvla-evals"
-
-    # Utils
-    run_id_note: Optional[str] = None                # Extra note to add in run ID for logging
-    local_log_dir: str = "./experiments/logs"        # Local directory for eval logs
-    save_data: bool = False
-    debug: bool = False # If debug, will need to manually rollout the videos, otherwise it will automatically save the results
-
-
 @draccus.wrap()
-def main(cfg: GenerateConfig) -> None:
+def main(cfg: RobosuiteEvalConfig) -> None:
     assert cfg.pretrained_checkpoint, "cfg.pretrained_checkpoint must be set."
     assert not cfg.center_crop, "`center_crop` should be disabled."
 
-    # [OpenVLA] Set action un-normalization key
-    cfg.unnorm_key = "" # doesn't do anything
+    print(f"Config: {cfg}")
 
     # Load model and processor
     model = get_model(cfg)
@@ -93,7 +42,7 @@ def main(cfg: GenerateConfig) -> None:
         processor = get_processor(cfg)
 
     # Initialize local logging
-    run_id = f"EVAL-{cfg.env_name}-{cfg.model_family}-{DATE_TIME}"
+    run_id = f"EVAL-{cfg.env.env_name}-{cfg.model_family}-{DATE_TIME}"
     if cfg.lora_adapter:
         run_id += f"-lora"
     else:
@@ -105,17 +54,9 @@ def main(cfg: GenerateConfig) -> None:
     log_file = open(local_log_filepath, "w")
     print(f"Logging to local log file: {local_log_filepath}")
 
-    # Check if is mimicgen environment
-    if cfg.env_name.startswith("Mimicgen"):
-        is_mimicgen = True
-        # set the cfg.env_name to be the part after Mimicgen_
-        cfg.env_name = cfg.env_name[len("mimicgen_"):]
-    else:
-        is_mimicgen = False
-
     # Initialize wandb
     if not cfg.debug:
-        tags = ["robosuite", "eval"] if not is_mimicgen else ["mimicgen", "eval"]
+        tags = ["robosuite", "eval"] if cfg.env.env_type != RobosuiteEnvType.MIMICGEN else ["mimicgen", "eval"]
         if cfg.lora_adapter:
             tags.append("lora")
         else:
@@ -130,10 +71,12 @@ def main(cfg: GenerateConfig) -> None:
         )
     
     # Get environment
-    env = get_robosuite_env(cfg) if not is_mimicgen else get_mimicgen_env(cfg)
+    env_cfg = cfg.env
+    env_cfg.debug = cfg.debug
+    env = get_robosuite_env(env_cfg) if cfg.env.env_type != RobosuiteEnvType.MIMICGEN else get_mimicgen_env(env_cfg)
     resize_size = get_image_resize_size(cfg)
-    print(f"Environment: {cfg.env_name}, task: {cfg.task_label}")
-    log_file.write(f"Environment: {cfg.env_name}, task: {cfg.task_label}\n")
+    print(f"Environment: {env_cfg.env_name}, task: {env_cfg.task_label}")
+    log_file.write(f"Environment: {env_cfg.env_name}, task: {env_cfg.task_label}\n")
 
     # Start evaluation
     episode_idx = 0
@@ -167,7 +110,7 @@ def main(cfg: GenerateConfig) -> None:
                     last_tstamp = time.time()
 
                     # Refresh the camera image and proprioceptive state
-                    obs = refresh_obs(cfg, obs, env)
+                    obs = refresh_obs(env_cfg, obs, env)
 
                     # Save full (not preprocessed) image for replay video
                     replay_images.append(obs["full_image"])
@@ -180,7 +123,7 @@ def main(cfg: GenerateConfig) -> None:
                         cfg,
                         model,
                         obs,
-                        cfg.task_label,
+                        env_cfg.task_label,
                         processor=processor,
                     )
                     action = normalize_gripper_action(action, binarize=True)
@@ -196,7 +139,8 @@ def main(cfg: GenerateConfig) -> None:
                     print("action:", action)
                     log_file.write(f"action: {action}\n")
                     obs, _, done, info = env.step(action)
-                    env.render()
+                    if cfg.debug:
+                        env.render()
                     t += 1
                     if env._check_success():
                         print(f"Task completed at t={t}!")
@@ -224,12 +168,20 @@ def main(cfg: GenerateConfig) -> None:
 
         # Redo episode or continue
         if not cfg.debug or input("Enter 'r' if you want to redo the episode, or press Enter to continue: ") != "r":
-            episode_idx += 1    
+            episode_idx += 1
+
+        # Calculate success rate so far
+        if episode_idx == 0:
+            success_rate = 0.0
+        else:
+            success_rate = success_count / episode_idx
+        print(f"Success rate at episode {episode_idx}: {success_rate}")
+        log_file.write(f"Success rate at episode {episode_idx}: {success_rate}\n")
+        log_file.flush()
+        if not cfg.debug:
+            wandb.log({"success_rate": success_rate})    
 
     # End evaluation
-    success_rate = success_count / cfg.max_episodes
-    print(f"Success rate: {success_rate}")
-    log_file.write(f"Success rate: {success_rate}\n")
     log_file.close()
     if not cfg.debug:
         wandb.log({"success_rate": success_rate})
