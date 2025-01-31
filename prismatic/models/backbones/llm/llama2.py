@@ -16,7 +16,6 @@ from prismatic.models.backbones.llm.prompting import (
     LLaMa2ChatPromptBuilder,
     PromptBuilder,
     PurePromptBuilder,
-    VicunaV15ChatPromptBuilder,
 )
 
 # Registry =>> Support LLaMa-2 Models (from HF Transformers)
@@ -38,15 +37,6 @@ LLAMA2_MODELS = {
 
     "llama2-13b-chat": {
         "llm_family": "llama2", "llm_cls": LlamaForCausalLM, "hf_hub_path": "meta-llama/Llama-2-13b-chat-hf"
-    },
-
-    # === Vicuna v1.5 Chat Models ===
-    "vicuna-v15-7b": {
-        "llm_family": "llama2", "llm_cls": LlamaForCausalLM, "hf_hub_path": "lmsys/vicuna-7b-v1.5"
-    },
-
-    "vicuna-v15-13b": {
-        "llm_family": "llama2", "llm_cls": LlamaForCausalLM, "hf_hub_path": "lmsys/vicuna-13b-v1.5"
     },
 }
 # fmt: on
@@ -82,9 +72,6 @@ class LLaMa2LLMBackbone(HFCausalLLMBackbone):
 
         elif self.identifier.startswith("llama2-") and self.identifier.endswith("-chat"):
             return LLaMa2ChatPromptBuilder
-
-        elif self.identifier.startswith("vicuna"):
-            return VicunaV15ChatPromptBuilder
 
         raise ValueError(f"No PromptBuilder defined for LLM Backbone `{self.identifier}`")
 

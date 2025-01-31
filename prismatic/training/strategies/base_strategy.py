@@ -20,10 +20,9 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from prismatic.models.vlms import PrismaticVLM
 from prismatic.overwatch import initialize_overwatch
-from prismatic.training.metrics import Metrics, VLAMetrics
+from prismatic.training.metrics import VLAMetrics
 from prismatic.util import check_bloat16_supported
-from prismatic.util.batching_utils import SplitModalitySampler
-from prismatic.util.data_utils import PaddedCollatorForActionPrediction, PaddedCollatorForLanguageModeling
+from prismatic.util.data_utils import PaddedCollatorForActionPrediction
 from prismatic.vla.action_tokenizer import ActionTokenizer
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
@@ -102,143 +101,6 @@ class TrainingStrategy(ABC):
 
     @abstractmethod
     def clip_grad_norm(self) -> None: ...
-
-    def run_training(
-        self,
-        dataset: Dataset,
-        collator: PaddedCollatorForLanguageModeling,
-        metrics: Metrics,
-        stage: str = "finetune",
-        batch_construction_strategy: str = "split-modality",
-        seed: int = 7,
-    ) -> None:
-        """Run the training loop for the given `dataset` and `collator`; log losses, results to `metrics`"""
-        if "finetune" in stage and batch_construction_strategy == "split-modality":
-            # Instantiate the split-modality sampler; if you want to extend with other batch construction schemes,
-            #   (e.g., grouping by length) =>> can easily add them here!
-            modality_lengths = dataset.get_modality_lengths()
-            sampler = SplitModalitySampler(
-                dataset,
-                modality_lengths,
-                global_batch_size=self.global_batch_size,
-                num_replicas=overwatch.world_size(),
-                rank=overwatch.rank(),
-                seed=seed,
-                drop_last=False,
-            )
-
-        else:
-            sampler = DistributedSampler(
-                dataset,
-                num_replicas=overwatch.world_size(),
-                rank=overwatch.rank(),
-                shuffle=True,
-                seed=seed,
-                drop_last=False,
-            )
-
-        # Create a DataLoader with the initialized sampler, per-device-bsz, and collator
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.per_device_batch_size,
-            sampler=sampler,
-            collate_fn=collator,
-            num_workers=2,
-            worker_init_fn=self.worker_init_fn,
-        )
-
-        # Max Steps vs. Epochs Computation
-        steps_per_epoch = len(dataloader) // self.grad_accumulation_steps
-        if self.max_steps is not None and steps_per_epoch < self.max_steps:
-            # Just set `epochs` to some large number --> we'll short-circuit based on steps anyway
-            self.epochs = 100
-
-        # === Train ===
-        status = metrics.get_status()
-        with tqdm(
-            total=(
-                (self.epochs * (len(dataloader) // self.grad_accumulation_steps))
-                if self.max_steps is None
-                else self.max_steps
-            ),
-            desc=status,
-            leave=False,
-            disable=not overwatch.is_rank_zero(),
-        ) as progress:
-            for epoch in range(self.epochs):
-                self.vlm.train()
-                sampler.set_epoch(epoch)
-
-                # Zero-Gradients (just in case)
-                self.optimizer.zero_grad()
-
-                # Note that we'll unpack batch (and let AMP/FSDP do its thing) in the VLM.forward() call
-                #   => Basically, if we're using mixed precision (or not), autocast()/FSDP will move to device!
-                for train_idx, batch in enumerate(dataloader):
-                    # [Contract] self.vlm.forward() must automatically compute `loss` and return!
-                    with torch.autocast(
-                        "cuda",
-                        dtype=self.mixed_precision_dtype,
-                        enabled=self.enable_mixed_precision_training,
-                    ):
-                        output: CausalLMOutputWithPast = self.vlm(
-                            input_ids=batch["input_ids"],
-                            attention_mask=batch["attention_mask"],
-                            pixel_values=batch["pixel_values"],
-                            labels=batch["labels"],
-                            multimodal_indices=batch["multimodal_indices"],
-                        )
-                        loss = output.loss
-
-                    # Commit Loss (Prior to Gradient Accumulation Normalization)
-                    metrics.commit(loss=loss)
-
-                    # Normalize Loss to account for Gradient Accumulation --> Backward!
-                    # [IMPORTANT] Technically speaking, doing gradient accumulation in this way is "incorrect"; this is
-                    #             because in general, each batch has a *different number of masked out tokens* (because
-                    #             we're instruct-tuning). Taking the mean over two unbalanced means != the right thing!
-                    #
-                    #             HOWEVER -- at least at the 7B scale, the "naive" approach is just as performant as
-                    #             the "correct" implementation, without adding extra complexity.
-                    #
-                    # That being said =>> at the 13B scale, *no matter what we tried, ANY gradient accumulation is just
-                    #   really bad for downstream performance. Initial investigation shows that BF16 accumulation
-                    #   just really tanks in precision... and don't have a good/clean way to fix this. Would love for
-                    #   someone to PR and fix this (and I'd greatly appreciate it!!!)
-                    normalized_loss = loss / self.grad_accumulation_steps
-                    normalized_loss.backward()
-
-                    # Step =>> Only if Done w/ Gradient Accumulation
-                    if (train_idx + 1) % self.grad_accumulation_steps == 0:
-                        metrics.commit(update_step_time=True)
-
-                        # Clip Gradients --> this is custom, per-strategy because of DDP vs. FSDP locality-assumptions
-                        self.clip_grad_norm()
-
-                        # Optimizer & LR Scheduler Step
-                        self.optimizer.step()
-                        self.lr_scheduler.step()
-                        self.optimizer.zero_grad()
-
-                        # Push Metrics
-                        metrics.commit(global_step=metrics.global_step + 1, lr=self.lr_scheduler.get_last_lr()[0])
-                        status = metrics.push()
-
-                        # Check for Termination & Save Final Checkpoint (in case `max_steps` is not None)
-                        if self.max_steps is not None and metrics.global_step >= self.max_steps:
-                            self.save_checkpoint(metrics.run_dir, metrics.global_step, epoch, loss.item())
-                            dist.barrier()
-
-                            return
-
-                        # Update Progress Bar
-                        progress.update()
-                        progress.set_description(status)
-
-            # Save checkpoint at end each epoch (if `self.max_steps` is None)
-            if self.max_steps is None:
-                self.save_checkpoint(metrics.run_dir, metrics.global_step, epoch, loss.item())
-                dist.barrier()
 
     # === VLA Training ===
 

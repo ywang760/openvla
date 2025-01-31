@@ -13,7 +13,7 @@ from transformers.models.auto import CONFIG_MAPPING
 # === Utilities for Mapping Prismatic names to HF names ===
 # fmt: off
 VISION_BACKBONE_TO_RESOLUTION: Dict[str, List[int]] = {
-    "clip-vit-l": [224], "siglip-vit-so400m": [224], "dinov2-vit-l": [224], "in1k-vit-l": [224],
+    "clip-vit-l": [224], "siglip-vit-so400m": [224], "dinov2-vit-l": [224],
 
     "clip-vit-l-336px": [336],
     "siglip-vit-so400m-384px": [384],
@@ -27,7 +27,6 @@ VISION_BACKBONE_TO_TIMM_ID: Dict[str, List[str]] = {
     "clip-vit-l-336px": ["vit_large_patch14_clip_336.openai"],
 
     "dinov2-vit-l": ["vit_large_patch14_reg4_dinov2.lvd142m"],
-    "in1k-vit-l": ["vit_large_patch16_224.augreg_in21k_ft_in1k"],
 
     "siglip-vit-so400m": ["vit_so400m_patch14_siglip_224"],
     "siglip-vit-so400m-384px": ["vit_so400m_patch14_siglip_384"],
@@ -38,7 +37,7 @@ VISION_BACKBONE_TO_TIMM_ID: Dict[str, List[str]] = {
 }
 TIMM_OVERRIDE_ACT_LAYER: Dict[str, List[Optional[str]]] = {
     "clip-vit-l": ["quick_gelu"], "clip-vit-l-336px": ["quick_gelu"],
-    "dinov2-vit-l": [None], "in1k-vit-l": [None],
+    "dinov2-vit-l": [None],
     "siglip-vit-so400m": [None], "siglip-vit-so400m-384px": [None],
     "dinoclip-vit-l-336px": [None, "quick_gelu"],
     "dinosiglip-vit-so-224px": [None, None], "dinosiglip-vit-so-384px": [None, None]
@@ -47,21 +46,9 @@ TIMM_OVERRIDE_ACT_LAYER: Dict[str, List[Optional[str]]] = {
 LLM_BACKBONE_TO_HF_PATH = {
     "llama2-7b-pure": "meta-llama/Llama-2-7b-hf", "llama2-13b-pure": "meta-llama/Llama-2-13b-hf",
     "llama2-7b-chat": "meta-llama/Llama-2-7b-chat-hf", "llama2-13b-chat": "meta-llama/Llama-2-13b-chat-hf",
-
-    "vicuna-v15-7b": "lmsys/vicuna-7b-v1.5", "vicuna-v15-13b": "lmsys/vicuna-13b-v1.5",
-
-    "mistral-v0.1-7b-pure": "mistralai/Mistral-7B-v0.1",
-    "mistral-v0.1-7b-instruct": "mistralai/Mistral-7B-Instruct-v0.1",
-
-    "phi-2-3b": "microsoft/phi-2",
 }
 LLM_BACKBONE_TO_HF_METACLASS = {
     "llama2-7b-pure": "llama", "llama2-13b-pure": "llama", "llama2-7b-chat": "llama", "llama2-13b-chat": "llama",
-    "vicuna-v15-7b": "llama", "vicuna-v15-13b": "llama",
-
-    "mistral-v0.1-7b-pure": "mistral", "mistral-v0.1-7b-instruct": "mistral",
-
-    "phi-2-3b": "phi",
 }
 
 VALID_VISION_BACKBONES = set(VISION_BACKBONE_TO_RESOLUTION.keys())
@@ -76,7 +63,7 @@ class PrismaticConfig(PretrainedConfig):
     def __init__(
         self,
         vision_backbone_id: str = "siglip-vit-so400m",
-        llm_backbone_id: str = "vicuna-v15-7b",
+        llm_backbone_id: str = "llama2-7b-pure",
         arch_specifier: str = "no-align+gelu-mlp",
         use_fused_vision_backbone: Optional[bool] = None,
         image_resize_strategy: str = "letterbox",

@@ -161,15 +161,6 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
         # line, it's probably because you're adding a new LLM with a different tokenizer behavior. If so, feel free to
         # override the `SPECIAL_CASES` set below, but make sure to make the appropriate changes in the `datasets.py`
         # and VLM `forward()` logic!
-        SPECIAL_CASES = {
-            # Phi-2 Tokenizer doesn't add any BOS tokens by default, and sets BOS == EOS == "<|endoftext|>"
-            #   =>> We'll prepend BOS to first input (to play nicely with image token insertion logic; verified that
-            #       this works well with base LLM generation.
-            #   =>> Like Llama-2 Tokenizers -- we'll add a special PAD token for training purposes.
-            "phi-2-3b",
-        }
-        if self.identifier in SPECIAL_CASES:
-            return
 
         # Note =>> this assert should hold for all Llama-derived tokenizers (`LlamaTokenizerFast` ==> includes Mistral!
         assert (self.tokenizer("Test 123", add_special_tokens=True).input_ids[0] == self.tokenizer.bos_token_id) and (

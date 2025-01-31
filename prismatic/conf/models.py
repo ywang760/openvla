@@ -73,14 +73,14 @@ class ModelConfig(ChoiceRegistry):
     # fmt: on
 
 
-# === LLaVa v1.5 Reproduction - Fully Specified Configurations ===
+# === Base class using Llama2 ===
 @dataclass
-class LLaVa_v15_Reproduction_7B(ModelConfig):
-    model_id: str = "reproduction-llava-v15+7b"
+class Llama2_7B(ModelConfig):
+    model_id: str = "llama2+7b"
     arch_specifier: str = "gelu-mlp"
 
     vision_backbone_id: str = "clip-vit-l-336px"
-    llm_backbone_id: str = "vicuna-v15-7b"
+    llm_backbone_id: str = "llama2-7b-pure"
 
     image_resize_strategy: str = "letterbox"
     llm_max_length: int = 2048
@@ -115,9 +115,9 @@ class LLaVa_v15_Reproduction_7B(ModelConfig):
 
 
 @dataclass
-class LLaVa_v15_Reproduction_13B(LLaVa_v15_Reproduction_7B):
-    model_id: str = "reproduction-llava-v15+13b"
-    llm_backbone_id: str = "vicuna-v15-13b"
+class Llama2_13B(Llama2_7B):
+    model_id: str = "llama2+13b"
+    llm_backbone_id: str = "llama2-13b-pure"
 
 
 # === Section 4.1 :: Optimization Procedure ===
@@ -125,13 +125,13 @@ class LLaVa_v15_Reproduction_13B(LLaVa_v15_Reproduction_7B):
 
 # Section 4.1A :: 🚀 --> Necessity of Multi-Stage Training
 @dataclass
-class Exp_7B_One_Stage(LLaVa_v15_Reproduction_7B):
+class Exp_7B_One_Stage(Llama2_7B):
     model_id: str = "one-stage+7b"
     arch_specifier: str = "no-align+gelu-mlp"
 
 
 @dataclass
-class Exp_13B_One_Stage(LLaVa_v15_Reproduction_13B):
+class Exp_13B_One_Stage(Llama2_13B):
     model_id: str = "one-stage+13b"
     arch_specifier: str = "no-align+gelu-mlp"
 
@@ -139,7 +139,7 @@ class Exp_13B_One_Stage(LLaVa_v15_Reproduction_13B):
 # Section 4.1B :: 🛠️ --> Full Finetuning through Visual Backbones
 #   =>> Note :: Run with `--stage full-finetune`
 @dataclass
-class Exp_7B_Full_Finetune_Multi_Stage(LLaVa_v15_Reproduction_7B):
+class Exp_7B_Full_Finetune_Multi_Stage(Llama2_7B):
     model_id: str = "full-ft-multi-stage+7b"
 
 
@@ -152,12 +152,6 @@ class Exp_7B_Full_Finetune_One_Stage(Exp_7B_One_Stage):
 
 
 # Section 4.2A :: 📸 --> Choosing a Pretrained Representation
-@dataclass
-class Exp_7B_IN1K_ViT_L_p16_224px(Exp_7B_One_Stage):
-    model_id: str = "in1k-224px+7b"
-    vision_backbone_id: str = "in1k-vit-l"
-
-
 @dataclass
 class Exp_7B_DINOv2_ViT_L_p14_224px(Exp_7B_One_Stage):
     model_id: str = "dinov2-224px+7b"
@@ -248,18 +242,18 @@ class Exp_7B_DINOSigLIP_ViT_L_p14_384px_Resize_Naive(Exp_7B_One_Stage):
 
 # Section 4.3A :: 📝 --> Base vs. Instruct-Tuned (Chat) LLMs
 @dataclass
-class Exp_7B_Llama2(Exp_7B_One_Stage):
-    model_id: str = "llama2+7b"
+class Exp_7B_Llama2_One_Stage(Exp_7B_One_Stage):
+    model_id: str = "llama2+7b+one-stage"
     llm_backbone_id: str = "llama2-7b-pure"
 
 
 @dataclass
-class Exp_13B_Llama2(Exp_13B_One_Stage):
-    model_id: str = "llama2+13b"
+class Exp_13B_Llama2_One_Stage(Exp_13B_One_Stage):
+    model_id: str = "llama2+13b+one-stage"
     llm_backbone_id: str = "llama2-13b-pure"
 
 
-# ~ Additional LLM Backbones :: LLaMa-2 Chat, Mistral v0.1, Mistral v0.1 Instruct, Phi-2 ~
+# ~ Additional LLM Backbones :: LLaMa-2 Chat
 @dataclass
 class Ext_Exp_7B_Llama2_Chat(Exp_7B_One_Stage):
     model_id: str = "llama2-chat+7b"
@@ -272,31 +266,8 @@ class Ext_Exp_13B_Llama2_Chat(Exp_13B_One_Stage):
     llm_backbone_id: str = "llama2-13b-chat"
 
 
-@dataclass
-class Ext_Exp_7B_Mistral_V1(Exp_7B_One_Stage):
-    model_id: str = "mistral-v0.1+7b"
-    llm_backbone_id: str = "mistral-v0.1-7b-pure"
-
-
-@dataclass
-class Ext_Exp_7B_Mistral_Instruct_V1(Exp_7B_One_Stage):
-    model_id: str = "mistral-instruct-v0.1+7b"
-    llm_backbone_id: str = "mistral-v0.1-7b-instruct"
-
-
-@dataclass
-class Ext_Exp_3B_Phi_2(Exp_7B_One_Stage):
-    model_id: str = "phi-2+3b"
-    llm_backbone_id: str = "phi-2-3b"
-
-
 # Section 4.3B :: ✌️ --> Co-training on Language-only Data
 #   =>> Note :: Run with `--dataset.type "llava-multimodal" (multimodal data only / no co-training)
-@dataclass
-class Exp_7B_Vicuna_No_Cotraining(Exp_7B_One_Stage):
-    model_id: str = "vicuna-no-cotraining+7b"
-
-
 @dataclass
 class Exp_7B_Llama2_No_Cotraining(Exp_7B_One_Stage):
     model_id: str = "llama2-no-cotraining+7b"
@@ -500,9 +471,9 @@ class Prism_7B_DINOSigLIP_224px(Exp_7B_One_Stage):
 # === Define a Model Registry Enum for Reference & Validation ===
 @unique
 class ModelRegistry(Enum):
-    # === LLaVa v1.5 Base Reproductions ===
-    REPRODUCTION_7B = LLaVa_v15_Reproduction_7B
-    REPRODUCTION_13B = LLaVa_v15_Reproduction_13B
+    # === Llama2 Base Reproductions ===
+    LLAMA2_7B = Llama2_7B
+    LLAMA2_13B = Llama2_13B
 
     # === Section 4.1 :: Optimization Procedure ===
     EXP_ONE_STAGE_7B = Exp_7B_One_Stage
@@ -512,7 +483,6 @@ class ModelRegistry(Enum):
     EXP_FULL_FT_ONE_STAGE = Exp_7B_Full_Finetune_One_Stage
 
     # === Section 4.2 :: Image Processing and Visual Representations ===
-    EXP_IN1K_224PX = Exp_7B_IN1K_ViT_L_p16_224px
     EXP_DINOV2_224PX = Exp_7B_DINOv2_ViT_L_p14_224px
     EXP_CLIP_224PX = Exp_7B_CLIP_ViT_L_p14_224px
     EXP_SIGLIP_224PX = Exp_7B_SigLIP_ViT_SO_p14_224px
@@ -529,18 +499,14 @@ class ModelRegistry(Enum):
     EXP_DINOSIGLIP_384PX_RESIZE_NAIVE = Exp_7B_DINOSigLIP_ViT_L_p14_384px_Resize_Naive
 
     # === Section 4.3 :: Language Models ===
-    EXP_LLAMA2_7B = Exp_7B_Llama2
-    EXP_LLAMA2_13B = Exp_13B_Llama2
+    EXP_LLAMA2_7B_One_Stage = Exp_7B_Llama2_One_Stage
+    EXP_LLAMA2_13B_One_Stage = Exp_13B_Llama2_One_Stage
 
-    # ~ Additional LLM Backbone Experiments :: LLaMa-2 Chat, Mistral v0.1, Mistral v0.1 Instruct ~
+    # ~ Additional LLM Backbone Experiments :: LLaMa-2 Chat ~
     EXT_EXP_LLAMA2_CHAT_7B = Ext_Exp_7B_Llama2_Chat
     EXT_EXP_LLAMA2_CHAT_13B = Ext_Exp_13B_Llama2_Chat
-    EXT_EXP_MISTRAL_V1_7B = Ext_Exp_7B_Mistral_V1
-    EXT_EXP_MISTRAL_INSTRUCT_V1_7B = Ext_Exp_7B_Mistral_Instruct_V1
-    EXT_EXP_PHI_2_3B = Ext_Exp_3B_Phi_2
 
     # Cotraining w/ Unimodal Data
-    EXP_VICUNA_NO_COTRAINING_7B = Exp_7B_Vicuna_No_Cotraining
     EXP_LLAMA2_NO_COTRAINING_7B = Exp_7B_Llama2_No_Cotraining
 
     # === Section 4.4 :: Scaling Properties - Train Time & Data ===
