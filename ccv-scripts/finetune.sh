@@ -3,8 +3,8 @@
 #SBATCH --constraint=ampere
 #SBATCH -p gpu --gres=gpu:2
 #SBATCH -n 2
-#SBATCH --time=24:00:00
-#SBATCH --mem=192G
+#SBATCH --time=36:00:00
+#SBATCH --mem=96G
 #SBATCH -J finetune-openvla
 
 #SBATCH -o log/finetune-openvla-%j.out

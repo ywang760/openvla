@@ -3,8 +3,9 @@ vla_path: "openvla/openvla-7b"  # Path to OpenVLA model (on HuggingFace Hub)
 # Directory Paths
 data_root_dir: "datasets"  # Path to Open-X dataset directory
 dataset_name: "robosuite_can"  # Name of fine-tuning dataset
-run_root_dir: "runs"  # Path to directory to store logs & checkpoints
-adapter_tmp_dir: "adapter-tmp"  # Temporary directory for LoRA weights before fusing
+data_max_samples: null  # Maximum number of samples to use from dataset (None for all)
+run_root_dir: "/users/ywang760/scratch/openvla/runs"  # Path to directory to store logs & checkpoints
+adapter_tmp_dir: "/users/ywang760/scratch/openvla/adapter-tmp"  # Temporary directory for LoRA weights before fusing
 
 # Fine-tuning Parameters
 batch_size: 4  # Fine-tuning batch size

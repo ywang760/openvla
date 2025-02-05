@@ -209,7 +209,7 @@ OXE_NAMED_MIXTURES: Dict[str, List[Tuple[str, float]]] = {
 
     # === Robosuite Datasets ===
     "robosuite": [
-        ("robosuite_dataset", 1.0),
+        ("lift", 1.0),
     ]
 }
 # fmt: on

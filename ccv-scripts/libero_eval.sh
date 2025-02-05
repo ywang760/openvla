@@ -15,24 +15,23 @@ bash prelaunch.sh
 cd ..
 
 # LoRA finetuned myself
-# python experiments/robot/libero/run_libero_eval.py \
-#   --model_family openvla \
-#   --pretrained_checkpoint openvla/openvla-7b \
-#   --lora_adapter True \
-#   --lora_exp_id openvla-7b+libero_spatial+b8+lr-0.0005+lora-r32+dropout-0.0+q-4bit--None--image_aug \
-#   --load_in_4bit True \
-#   --center_crop True \
-#   --task_suite_name libero_spatial \
-#   --num_trials_per_task 20
-
-# Launch LIBERO-Spatial evals
 python experiments/robot/libero/run_libero_eval.py \
   --model_family openvla \
-  --pretrained_checkpoint openvla/openvla-7b-finetuned-libero-spatial \
-  --task_suite_name libero_spatial \
+  --pretrained_checkpoint /users/ywang760/scratch/openvla/runs/openvla-7b+libero_spatial+b8+lr-0.0005+lora-r32+dropout-0.0--None--image_aug \
+  --lora_adapter True \
+  --load_in_4bit False \
   --center_crop True \
-  --num_trials_per_task 3 \
-  --load_in_4bit False
+  --task_suite_name libero_spatial \
+  --num_trials_per_task 5
+
+# Launch LIBERO-Spatial evals
+# python experiments/robot/libero/run_libero_eval.py \
+#   --model_family openvla \
+#   --pretrained_checkpoint openvla/openvla-7b-finetuned-libero-spatial \
+#   --task_suite_name libero_spatial \
+#   --center_crop True \
+#   --num_trials_per_task 3 \
+#   --load_in_4bit False
 
 # # Launch LIBERO-Object evals
 # python experiments/robot/libero/run_libero_eval.py \

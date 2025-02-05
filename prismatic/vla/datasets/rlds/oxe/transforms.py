@@ -946,8 +946,10 @@ OXE_STANDARDIZATION_TRANSFORMS = {
     "libero_goal": libero_dataset_transform,
     "libero_10": libero_dataset_transform,
     ### Robosuite datasets
-    "robosuite_dataset": robosuite_dataset_transform,
+    "lift": robosuite_dataset_transform,
     "robosuite_can": robosuite_dataset_transform,
     ### MimicGen datasets
     "stack_d0": mimicgen_dataset_transform,
+    "stack_d1": mimicgen_dataset_transform,
+    "square_d0": mimicgen_dataset_transform,
 }
