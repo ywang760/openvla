@@ -466,6 +466,7 @@ def make_interleaved_dataset(
     balance_weights: bool = False,
     traj_transform_threads: Optional[int] = None,
     traj_read_threads: Optional[int] = None,
+    max_samples: Optional[int] = None,
 ) -> dl.DLataset:
     """
     Creates an interleaved dataset from list of dataset configs (kwargs). Returns a dataset of batched frames.
@@ -489,6 +490,7 @@ def make_interleaved_dataset(
             datasets according to their sampling weights. If None, defaults to AUTOTUNE for every dataset.
         traj_read_threads: total number of parallel read workers for trajectory transforms, distributed across
             datasets according to their sampling weights. If None, defaults to AUTOTUNE for every dataset.
+        max_samples: maximum number of samples to take from the dataset. If None, takes all samples.
     """
     # Default to uniform sampling (if `sample_weights` is not specified)
     if not sample_weights:
@@ -582,7 +584,12 @@ def make_interleaved_dataset(
     # Note =>> Seems to reduce memory usage without affecting speed?
     dataset = dataset.with_ram_budget(1)
 
+    if max_samples is not None:
+        dataset = dataset.take(max_samples)
+
     # Save for Later
     dataset.sample_weights = sample_weights
+    dataset_len = min(dataset_len, max_samples) if max_samples is not None else dataset_len
 
+    overwatch.info(f"Created dataset with length {dataset_len}.")
     return dataset, dataset_len, all_dataset_statistics
