@@ -14,4 +14,4 @@
 bash prelaunch.sh
 
 cd ..
-torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --config_path=vla-scripts/config/finetune_libero.yaml
+torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --config_path=vla-scripts/config/finetune_robomimic_lift.yaml

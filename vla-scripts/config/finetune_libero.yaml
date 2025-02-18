@@ -4,8 +4,8 @@ vla_path: "openvla/openvla-7b"  # Path to OpenVLA model (on HuggingFace Hub)
 data_root_dir: "/users/ywang760/scratch/modified_libero_rlds"  # Path to Open-X dataset directory
 dataset_name: "libero_object"  # Name of fine-tuning dataset (libero_spatial, libero_object)
 data_max_samples: null  # Maximum number of samples to use from dataset (None for all)
-run_root_dir: "/users/ywang760/scratch/openvla/runs"  # Path to directory to store logs & checkpoints
-adapter_tmp_dir: "/users/ywang760/scratch/openvla/adapter-tmp"  # Temporary directory for LoRA weights before fusing
+run_root_dir: "/users/ywang760/scratch/openvla/runs/libero"  # Path to directory to store logs & checkpoints
+adapter_tmp_dir: "/users/ywang760/scratch/openvla/adapter-tmp/libero"  # Temporary directory for LoRA weights before fusing
 
 # Fine-tuning Parameters
 batch_size: 8  # Fine-tuning batch size

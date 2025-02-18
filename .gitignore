@@ -153,9 +153,10 @@ rollouts/
 wandb/
 
 # Data
-datasets/
+/datasets/
 runs/
 adapter-tmp/
+image_samples/
 
 # Oscar log files
 *.err
