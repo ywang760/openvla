@@ -70,7 +70,21 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 #     )
 #
 # # fmt: on
+def check_weights_initialized(model):
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            # Check if weights are all zeros
+            if torch.all(param == 0):
+                print(f"Weights in {name} are not initialized (all zeros).")
+            else:
+                print(f"Weights in {name} are initialized.")
+def check_dtype(model, expected_dtype=torch.bfloat16):
+    for name, param in model.named_parameters():
+        if param.requires_grad and param.dtype != expected_dtype:
+            print(f"{name} has {param.dtype} instead of {expected_dtype}")
+        
 
+ORIGINAL = True
 
 @dataclass
 class FinetuneConfig:
@@ -113,9 +127,40 @@ class FinetuneConfig:
     # fmt: on
 
 
+def new_components(vla, device_id):
+    timm_model_id = "vit_base_patch16_clip_224.openai"  # Example: Vision Transformer
+    # example, mae with 224
+    timm_model_id2 = "vit_base_patch16_224.mae"
+    image_size = 224  # Input image size
+    override_act_layer = None  # Optional activation layer override
+    use_fused_vision_backbone = True
+    # Create a new PrismaticVisionBackbone
+    new_vision_backbone = PrismaticVisionBackbone(
+        use_fused_vision_backbone=use_fused_vision_backbone,  # Set True if using a fused backbone
+        image_sizes=[image_size, image_size],
+        timm_model_ids=[timm_model_id, timm_model_id2],
+        timm_override_act_layers=[override_act_layer, override_act_layer],
+    )
+    vla.vision_backbone = new_vision_backbone
+    # init the weights
+
+    new_projector = PrismaticProjector(
+        use_fused_vision_backbone=use_fused_vision_backbone,
+        vision_dim=new_vision_backbone.embed_dim,
+        llm_dim=vla.config.text_config.hidden_size
+    )
+    vla.projector = new_projector
+
+    # make sure vision_backbone and projector are on the same device
+    new_projector = new_projector.to(device_id).to(torch.bfloat16) # TODO: make sure this is desirable
+    new_vision_backbone = new_vision_backbone.to(device_id).to(torch.bfloat16)
+    return new_vision_backbone, new_projector
+
+
 @draccus.wrap()
 def finetune(cfg: FinetuneConfig) -> None:
     print(f"Fine-tuning OpenVLA Model `{cfg.vla_path}` on `{cfg.dataset_name}`")
+    print(f"ORIGINAL is {ORIGINAL}")
     print(f"debug: {cfg.debug}")
 
     # [Validate] Ensure GPU Available & Set Device / Distributed Context
@@ -166,6 +211,8 @@ def finetune(cfg: FinetuneConfig) -> None:
         low_cpu_mem_usage=True,
         trust_remote_code=True,
     )
+    if not ORIGINAL:
+        new_vision_backbone, new_projector = new_components(vla, device_id)
 
     # Device Placement =>> note that BitsAndBytes automatically handles for quantized training
     if cfg.use_quantization:
@@ -183,6 +230,12 @@ def finetune(cfg: FinetuneConfig) -> None:
             init_lora_weights="gaussian",
         )
         vla = get_peft_model(vla, lora_config)
+        # make the vision_backbone and projector trainable
+        if not ORIGINAL:
+            for param in new_vision_backbone.parameters():
+                param.requires_grad = True
+            for param in new_projector.parameters():
+                param.requires_grad = True
         vla.print_trainable_parameters()
 
     # Wrap VLA in PyTorch DDP Wrapper for Multi-GPU Training
@@ -195,7 +248,7 @@ def finetune(cfg: FinetuneConfig) -> None:
 
     # Create Optimizer =>> note that we default to a simple constant learning rate!
     trainable_params = [param for param in vla.parameters() if param.requires_grad]
-    optimizer = AdamW(trainable_params, lr=cfg.learning_rate)
+    optimizer = AdamW(trainable_params, lr=cfg.learning_rate)``
 
     # Create Action Tokenizer
     action_tokenizer = ActionTokenizer(processor.tokenizer)
@@ -352,6 +405,8 @@ def finetune(cfg: FinetuneConfig) -> None:
                     base_vla = AutoModelForVision2Seq.from_pretrained(
                         cfg.vla_path, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True, trust_remote_code=True
                     )
+                    if not ORIGINAL:
+                        new_components(base_vla, device_id)
                     merged_vla = PeftModel.from_pretrained(base_vla, adapter_dir)
                     merged_vla = merged_vla.merge_and_unload() # this step is very slow
                     if distributed_state.is_main_process:

@@ -27,6 +27,11 @@ OPENVLA_V01_SYSTEM_PROMPT = (
     "The assistant gives helpful, detailed, and polite answers to the user's questions."
 )
 
+def print_dtype(model):
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.dtype}")
+
+ORIGINAL = True
 
 def get_vla(cfg):
     """Loads and returns a VLA model from checkpoint."""
@@ -46,21 +51,73 @@ def get_vla(cfg):
     AutoModelForVision2Seq.register(OpenVLAConfig, OpenVLAForActionPrediction)
 
     # Whether to load the local LoRA adapter and merge with base model or use the remote pretrained_checkpoint
-    vla = AutoModelForVision2Seq.from_pretrained(
-        cfg.pretrained_checkpoint,
-        attn_implementation="flash_attention_2",
-        torch_dtype=torch.bfloat16,
-        load_in_8bit=cfg.load_in_8bit,
-        load_in_4bit=cfg.load_in_4bit,
-        low_cpu_mem_usage=True,
-        trust_remote_code=True,
-    )
-    if cfg.lora_adapter:
-        run_dir = os.path.join("runs", cfg.lora_exp_id)
-        adapter_dir = os.path.join("adapter-tmp", cfg.lora_exp_id)
-        print(f"Loading adapter from {adapter_dir} and 'dataset_statistics.json' from {run_dir}")
-        vla = PeftModel.from_pretrained(vla, adapter_dir)
-        vla = vla.merge_and_unload()
+    if ORIGINAL:
+        vla = AutoModelForVision2Seq.from_pretrained(
+            cfg.pretrained_checkpoint,
+            attn_implementation="flash_attention_2",
+            torch_dtype=torch.bfloat16,
+            load_in_8bit=cfg.load_in_8bit,
+            load_in_4bit=cfg.load_in_4bit,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        )
+    
+    else:
+        # quantization_config = BitsAndBytesConfig(
+        #         load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_quant_type="nf4"
+        # )
+        base_vla = AutoModelForVision2Seq.from_pretrained(
+            "openvla/openvla-7b",
+            torch_dtype=torch.bfloat16,
+            load_in_8bit=cfg.load_in_8bit,
+            load_in_4bit=cfg.load_in_4bit,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        )
+
+        def new_components(vla, device_id):
+            from prismatic.extern.hf.modeling_prismatic import PrismaticVisionBackbone, PrismaticProjector
+            timm_model_id = "vit_base_patch16_clip_224.openai"  # Example: Vision Transformer
+            # example, mae with 224
+            timm_model_id2 = "vit_base_patch16_224.mae"
+            image_size = 224  # Input image size
+            override_act_layer = None  # Optional activation layer override
+            use_fused_vision_backbone = True
+            # Create a new PrismaticVisionBackbone
+            new_vision_backbone = PrismaticVisionBackbone(
+                use_fused_vision_backbone=use_fused_vision_backbone,  # Set True if using a fused backbone
+                image_sizes=[image_size, image_size],
+                timm_model_ids=[timm_model_id, timm_model_id2],
+                timm_override_act_layers=[override_act_layer, override_act_layer],
+            )
+            vla.vision_backbone = new_vision_backbone
+            # init the weights
+
+            new_projector = PrismaticProjector(
+                use_fused_vision_backbone=use_fused_vision_backbone,
+                vision_dim=new_vision_backbone.embed_dim,
+                llm_dim=vla.config.text_config.hidden_size
+            )
+            vla.projector = new_projector
+
+            # make sure vision_backbone and projector are on the same device
+            new_projector = new_projector.to(device_id).to(torch.bfloat16)
+            new_vision_backbone = new_vision_backbone.to(device_id).to(torch.bfloat16)
+
+            # print(f"Printing the dtype of the new components")
+            # print_dtype(new_vision_backbone)
+            # print_dtype(new_projector)
+        
+            return new_vision_backbone, new_projector
+        
+
+        from accelerate import PartialState
+        distributed_state = PartialState()
+        device_id = distributed_state.local_process_index
+        new_components(base_vla, device_id)
+        adapter_dir = "/users/ywang760/scratch/openvla/adapter-tmp/openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0+q-4bit--clip+mae--image_aug"
+
+        vla = PeftModel.from_pretrained(base_vla, adapter_dir)
 
     # Move model to device.
     # Note: `.to()` is not supported for 8-bit or 4-bit bitsandbytes models, but the model will
@@ -73,6 +130,7 @@ def get_vla(cfg):
     if os.path.isfile(dataset_statistics_path):
         with open(dataset_statistics_path, "r") as f:
             norm_stats = json.load(f)
+        base_vla.norm_stats = norm_stats
         vla.norm_stats = norm_stats
     else:
         print(
