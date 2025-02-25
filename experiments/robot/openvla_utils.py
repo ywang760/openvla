@@ -31,7 +31,7 @@ def print_dtype(model):
     for name, param in model.named_parameters():
         print(f"{name}: {param.dtype}")
 
-ORIGINAL = True
+ORIGINAL = False
 
 def get_vla(cfg):
     """Loads and returns a VLA model from checkpoint."""
@@ -61,7 +61,7 @@ def get_vla(cfg):
             low_cpu_mem_usage=True,
             trust_remote_code=True,
         )
-    
+
     else:
         # quantization_config = BitsAndBytesConfig(
         #         load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_quant_type="nf4"
@@ -107,15 +107,14 @@ def get_vla(cfg):
             # print(f"Printing the dtype of the new components")
             # print_dtype(new_vision_backbone)
             # print_dtype(new_projector)
-        
+
             return new_vision_backbone, new_projector
-        
 
         from accelerate import PartialState
         distributed_state = PartialState()
         device_id = distributed_state.local_process_index
         new_components(base_vla, device_id)
-        adapter_dir = "/users/ywang760/scratch/openvla/adapter-tmp/openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0+q-4bit--clip+mae--image_aug"
+        adapter_dir = "/users/ywang760/scratch/openvla/adapter-tmp/openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0--clip+mae--image_aug"
 
         vla = PeftModel.from_pretrained(base_vla, adapter_dir)
 

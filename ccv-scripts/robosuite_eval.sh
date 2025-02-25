@@ -18,7 +18,7 @@ cd ..
 python experiments/robot/robosuite/run_robosuite_eval.py \
     --env.type Lift \
     --lora_adapter True \
-    --pretrained_checkpoint /users/ywang760/scratch/openvla/runs/openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0--clip+mae--image_aug \
+    --pretrained_checkpoint /users/ywang760/scratch/openvla/runs/robomimic/openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0--clip+mae--image_aug \
     --max_episodes 4 \
     --max_steps 120 \
     --run_id_note clip+mae \

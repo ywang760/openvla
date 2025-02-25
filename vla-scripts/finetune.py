@@ -248,7 +248,7 @@ def finetune(cfg: FinetuneConfig) -> None:
 
     # Create Optimizer =>> note that we default to a simple constant learning rate!
     trainable_params = [param for param in vla.parameters() if param.requires_grad]
-    optimizer = AdamW(trainable_params, lr=cfg.learning_rate)``
+    optimizer = AdamW(trainable_params, lr=cfg.learning_rate)
 
     # Create Action Tokenizer
     action_tokenizer = ActionTokenizer(processor.tokenizer)
