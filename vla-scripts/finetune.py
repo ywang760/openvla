@@ -39,7 +39,7 @@ from transformers import AutoConfig, AutoImageProcessor
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 import wandb
-from prismatic.models.backbones.llm.prompting import PurePromptBuilder, VicunaV15ChatPromptBuilder
+from prismatic.models.backbones.llm.prompting import PurePromptBuilder
 from prismatic.util.data_utils import PaddedCollatorForActionPrediction
 from prismatic.vla.action_tokenizer import ActionTokenizer
 from prismatic.vla.datasets import RLDSBatchTransform, RLDSDataset
@@ -80,6 +80,7 @@ class FinetuneConfig:
     # Directory Paths
     data_root_dir: Path = Path("datasets/open-x-embodiment")        # Path to Open-X dataset directory
     dataset_name: str = "droid_wipe"                                # Name of fine-tuning dataset (e.g., `droid_wipe`)
+    data_max_samples: Optional[int] = None                          # Maximum number of samples to load from dataset
     run_root_dir: Path = Path("runs")                               # Path to directory to store logs & checkpoints
     adapter_tmp_dir: Path = Path("adapter-tmp")                     # Temporary directory for LoRA weights before fusing
 
@@ -101,6 +102,13 @@ class FinetuneConfig:
     lora_dropout: float = 0.0                                       # Dropout applied to LoRA weights
     use_quantization: bool = False                                  # Whether to 4-bit quantize VLA for LoRA fine-tuning
                                                                     #   => CAUTION: Reduces memory but hurts performance
+
+    # Architectural changes parameters
+    arch_change: Optional[bool] = False                             # Whether to change the architecture of the model
+    timm_vision_model_id_1: Optional[str] = None                    # Vision model ID for the first vision model
+    timm_vision_model_id_2: Optional[str] = None                    # Vision model ID for the second vision model
+    vision_model_learning_rate: float = 1e-4                               # Learning rate for the vision model
+    strategy: Optional[str] = "vision"                                 # Strategy for the architecture change
 
     # Tracking Parameters
     wandb_project: str = "openvla"                                  # Name of W&B project to log to (use default!)
@@ -214,14 +222,14 @@ def finetune(cfg: FinetuneConfig) -> None:
     #     action_tokenizer,
     #     processor.tokenizer,
     #     image_transform=processor.image_processor.apply_transform,
-    #     prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+    #     prompt_builder_fn=PurePromptBuilder,
     # )
     # ---
     batch_transform = RLDSBatchTransform(
         action_tokenizer,
         processor.tokenizer,
         image_transform=processor.image_processor.apply_transform,
-        prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+        prompt_builder_fn=PurePromptBuilder,
     )
     vla_dataset = RLDSDataset(
         cfg.data_root_dir,
@@ -230,6 +238,7 @@ def finetune(cfg: FinetuneConfig) -> None:
         resize_resolution=tuple(vla_reference.config.image_sizes),
         shuffle_buffer_size=cfg.shuffle_buffer_size,
         image_aug=cfg.image_aug,
+        max_samples=cfg.data_max_samples,
     )
 
     # [Important] Save Dataset Statistics =>> used to de-normalize actions for inference!
@@ -250,7 +259,7 @@ def finetune(cfg: FinetuneConfig) -> None:
 
     # Initialize Logging =>> W&B
     if distributed_state.is_main_process and not cfg.debug:
-        wandb.init(entity=cfg.wandb_entity, project=cfg.wandb_project, name=f"ft+{exp_id}")
+        wandb.init(entity=cfg.wandb_entity, project=cfg.wandb_project, name=f"ft+{exp_id}", config=cfg.__dict__)
 
     # Deque to store recent train metrics (used for computing smoothened metrics for gradient accumulation)
     recent_losses = deque(maxlen=cfg.grad_accumulation_steps)

@@ -42,12 +42,17 @@ def _check_mimicgen_env(env_name):
     # keep only envs that correspond to the different reset distributions from the paper
     envs = [x for x in only_mimicgen if x[-1].isnumeric()]
 
+    if env_name.startswith("Mimicgen_"):
+        env_name = env_name[9:]
+
     if env_name not in envs:
         raise ValueError(f"{env_name} is not a valid environment.\n Valid environments are {envs}.")
 
+    return env_name
+
 
 def get_mimicgen_env(cfg):
-    _check_mimicgen_env(cfg.env_name)
+    cfg.env_name = _check_mimicgen_env(cfg.env_name)
     controller_configs = load_controller_config(default_controller="OSC_POSE")
 
     env = suite.make(
@@ -64,8 +69,6 @@ def get_mimicgen_env(cfg):
     )
 
     return env
-
-
 
 
 def refresh_obs(cfg, obs, env):

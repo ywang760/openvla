@@ -16,15 +16,15 @@ if __name__ == "__main__":
 
     controller_configs = suite.load_controller_config(default_controller="OSC_POSE")
     env = suite.make(
-        env_name="Lift",
-        robots=["Panda"],             # load a Sawyer robot and a Panda robot
-        gripper_types="default",                # use default grippers per robot arm
-        has_renderer=True,                     
-        use_camera_obs=True,                   # provide image observations to agent
-        camera_names="sideview",               # use "agentview" camera for observations
-        camera_heights=512,                     # set camera height
-        camera_widths=512,                      # set camera width
-        reward_shaping=True,                    # use a dense reward signal for learning
+        env_name="Stack",
+        robots=["Panda"],  # load a Sawyer robot and a Panda robot
+        gripper_types="default",  # use default grippers per robot arm
+        has_renderer=True,
+        use_camera_obs=True,  # provide image observations to agent
+        camera_names="sideview",  # use "agentview" camera for observations
+        camera_heights=512,  # set camera height
+        camera_widths=512,  # set camera width
+        reward_shaping=True,  # use a dense reward signal for learning
         controller_configs=controller_configs,  # use OSC controller for control
     )
     env.viewer.set_camera(camera_id=1)

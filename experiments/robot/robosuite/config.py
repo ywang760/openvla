@@ -44,13 +44,23 @@ class Mimicgen_Stack_D0(RobosuiteEnvConfig):
     task_label: str = "Pick up the red block and place it on the green block."
     env_kwargs: Dict[str, Any] = field(default_factory=dict)
 
+
+@RobosuiteEnvConfig.register_subclass("Mimicgen_Stack_D1")
+@dataclass
+class Mimicgen_Stack_D1(RobosuiteEnvConfig):
+    env_name: str = "Mimicgen_Stack_D1"
+    env_type: RobosuiteEnvType = RobosuiteEnvType.MIMICGEN
+    task_label: str = "Pick up the red block and place it on the green block."
+    env_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass
 class RobosuiteEvalConfig():
     # Model-specific parameters
     model_family: str = "openvla"
-    pretrained_checkpoint: Union[str, Path] = "/users/ywang760/scratch/openvla/runs/openvla-7b+robosuite_dataset+b8+lr-0.0005+lora-r32+dropout-0.0--clip+mae--image_aug"
+    pretrained_checkpoint: Union[str, Path] = None
     lora_adapter: bool = True # Currently is only used for tagging on wandb
-    unnorm_key: str = "robosuite_dataset" # Edit based on the key in dataset_statistics.json
+    unnorm_key: str = "lift"  # Edit based on the key in dataset_statistics.json
 
     env: RobosuiteEnvConfig = Lift()
 
@@ -72,7 +82,3 @@ class RobosuiteEvalConfig():
     local_log_dir: str = "./experiments/logs"        # Local directory for eval logs
     save_data: bool = False
     debug: bool = True # If debug, will need to manually rollout the videos, otherwise it will automatically save the results
-
-
-
-

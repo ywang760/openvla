@@ -55,12 +55,6 @@ def get_vla(cfg):
         low_cpu_mem_usage=True,
         trust_remote_code=True,
     )
-    if cfg.lora_adapter:
-        run_dir = os.path.join("runs", cfg.lora_exp_id)
-        adapter_dir = os.path.join("adapter-tmp", cfg.lora_exp_id)
-        print(f"Loading adapter from {adapter_dir} and 'dataset_statistics.json' from {run_dir}")
-        vla = PeftModel.from_pretrained(vla, adapter_dir)
-        vla = vla.merge_and_unload()
 
     # Move model to device.
     # Note: `.to()` is not supported for 8-bit or 4-bit bitsandbytes models, but the model will
@@ -69,10 +63,7 @@ def get_vla(cfg):
         vla = vla.to(DEVICE)
 
     # Load dataset stats used during finetuning (for action un-normalization).
-    if cfg.lora_adapter:
-        dataset_statistics_path = os.path.join(run_dir, "dataset_statistics.json")
-    else:
-        dataset_statistics_path = os.path.join(cfg.pretrained_checkpoint, "dataset_statistics.json")
+    dataset_statistics_path = os.path.join(cfg.pretrained_checkpoint, "dataset_statistics.json")
     if os.path.isfile(dataset_statistics_path):
         with open(dataset_statistics_path, "r") as f:
             norm_stats = json.load(f)
@@ -181,8 +172,8 @@ def get_vla_action(cfg, vla, processor, obs, task_label):
     inputs = processor(prompt, image).to(DEVICE, dtype=torch.bfloat16)
 
     # Get action.
-    if cfg.lora_adapter:
-        action = vla.predict_action(**inputs, do_sample=False)
-    else:
-        action = vla.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
+    # if cfg.lora_adapter:
+    #     action = vla.predict_action(**inputs, do_sample=False)
+    # else:
+    action = vla.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
     return action
